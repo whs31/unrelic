@@ -5,7 +5,10 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use unrelic::{
     Result,
     cli::Cli,
-    ffmpeg::{EncoderSettings, convert_job, probe_duration, probe_frame_rate, probe_source_scan},
+    ffmpeg::{
+        EncoderSettings, convert_job, probe_duration, probe_frame_rate, probe_source_scan,
+        select_video_transform,
+    },
     plan::{PlanOptions, SkipReason, build_plan},
     tools::resolve_tools,
 };
@@ -96,7 +99,6 @@ fn run(cli: Cli) -> Result<u8> {
                 continue;
             }
         };
-        let deinterlace = cli.deinterlace.should_deinterlace(source_scan);
         let frame_rate = match probe_frame_rate(&tools.ffprobe, &job.input) {
             Ok(frame_rate) => frame_rate,
             Err(error) => {
@@ -107,6 +109,8 @@ fn run(cli: Cli) -> Result<u8> {
                 continue;
             }
         };
+        let video_transform =
+            select_video_transform(source_scan, cli.deinterlace, cli.fps_mode, frame_rate);
 
         configure_file_progress(&file_bar, duration);
 
@@ -115,8 +119,7 @@ fn run(cli: Cli) -> Result<u8> {
             &tools,
             &settings,
             duration,
-            deinterlace,
-            frame_rate.as_ref(),
+            &video_transform,
             &file_bar,
         ) {
             Ok(()) => {

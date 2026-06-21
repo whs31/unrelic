@@ -5,6 +5,7 @@ use clap::{Parser, ValueEnum};
 pub const DEFAULT_CRF: u8 = 14;
 pub const DEFAULT_PRESET: Preset = Preset::Veryslow;
 pub const DEFAULT_AUDIO_BITRATE: &str = "320k";
+pub const DEFAULT_FPS_MODE: FpsMode = FpsMode::Smooth;
 
 #[derive(Debug, Clone, Parser)]
 #[command(
@@ -66,6 +67,14 @@ pub struct Cli {
         help = "Deinterlace video: auto probes MPG field order, always forces bwdif, never disables it"
     )]
     pub deinterlace: DeinterlaceMode,
+
+    #[arg(
+        long,
+        default_value_t = DEFAULT_FPS_MODE,
+        value_enum,
+        help = "Frame-rate policy: smooth doubles bob-deinterlaced interlaced sources, source preserves nominal source FPS"
+    )]
+    pub fps_mode: FpsMode,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
@@ -120,6 +129,21 @@ impl fmt::Display for DeinterlaceMode {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum FpsMode {
+    Smooth,
+    Source,
+}
+
+impl fmt::Display for FpsMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Smooth => "smooth",
+            Self::Source => "source",
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,6 +161,7 @@ mod tests {
         assert_eq!(cli.preset, DEFAULT_PRESET);
         assert_eq!(cli.audio_bitrate, DEFAULT_AUDIO_BITRATE);
         assert_eq!(cli.deinterlace, DeinterlaceMode::Auto);
+        assert_eq!(cli.fps_mode, DEFAULT_FPS_MODE);
     }
 
     #[test]
@@ -169,6 +194,18 @@ mod tests {
         assert!(
             Cli::try_parse_from(["unrelic", "movie.mpg", "--deinterlace", "sometimes"]).is_err()
         );
+    }
+
+    #[test]
+    fn parses_fps_mode() {
+        let cli = Cli::parse_from(["unrelic", "movie.mpg", "--fps-mode", "source"]);
+
+        assert_eq!(cli.fps_mode, FpsMode::Source);
+    }
+
+    #[test]
+    fn rejects_invalid_fps_mode() {
+        assert!(Cli::try_parse_from(["unrelic", "movie.mpg", "--fps-mode", "fast"]).is_err());
     }
 
     #[test]

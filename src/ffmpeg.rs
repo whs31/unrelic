@@ -11,12 +11,13 @@ use indicatif::ProgressBar;
 
 use crate::{
     Result, UnrelicError,
-    cli::{DeinterlaceMode, Preset},
+    cli::{DeinterlaceMode, FpsMode, Preset},
     plan::{ConvertJob, ensure_output_parent},
     tools::ToolPaths,
 };
 
-const DEINTERLACE_FILTER: &str = "bwdif=mode=send_field:parity=auto:deint=all";
+const DEINTERLACE_FILTER_SEND_FRAME: &str = "bwdif=mode=send_frame:parity=auto:deint=all";
+const DEINTERLACE_FILTER_SEND_FIELD: &str = "bwdif=mode=send_field:parity=auto:deint=all";
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EncoderSettings {
@@ -25,13 +26,38 @@ pub struct EncoderSettings {
     pub audio_bitrate: String,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct FrameRate(String);
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct FrameRate {
+    numerator: u64,
+    denominator: u64,
+}
 
 impl FrameRate {
-    pub fn as_str(&self) -> &str {
-        &self.0
+    const fn new(numerator: u64, denominator: u64) -> Self {
+        Self {
+            numerator,
+            denominator,
+        }
     }
+
+    fn doubled(self) -> Option<Self> {
+        Some(Self {
+            numerator: self.numerator.checked_mul(2)?,
+            denominator: self.denominator,
+        })
+    }
+}
+
+impl std::fmt::Display for FrameRate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.numerator, self.denominator)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct VideoTransform {
+    pub filter: Option<&'static str>,
+    pub frame_rate: Option<FrameRate>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -48,6 +74,38 @@ impl DeinterlaceMode {
             Self::Always => true,
             Self::Never => false,
         }
+    }
+}
+
+pub fn select_video_transform(
+    source_scan: SourceScan,
+    deinterlace_mode: DeinterlaceMode,
+    fps_mode: FpsMode,
+    source_frame_rate: Option<FrameRate>,
+) -> VideoTransform {
+    let should_deinterlace = match (source_scan, deinterlace_mode) {
+        (SourceScan::Progressive, _) | (_, DeinterlaceMode::Never) => false,
+        (SourceScan::Interlaced, DeinterlaceMode::Auto | DeinterlaceMode::Always) => true,
+        (SourceScan::Unknown, DeinterlaceMode::Always) => true,
+        (SourceScan::Unknown, DeinterlaceMode::Auto) => false,
+    };
+
+    if !should_deinterlace {
+        return VideoTransform {
+            filter: None,
+            frame_rate: source_frame_rate,
+        };
+    }
+
+    match fps_mode {
+        FpsMode::Smooth => VideoTransform {
+            filter: Some(DEINTERLACE_FILTER_SEND_FIELD),
+            frame_rate: source_frame_rate.and_then(FrameRate::doubled),
+        },
+        FpsMode::Source => VideoTransform {
+            filter: Some(DEINTERLACE_FILTER_SEND_FRAME),
+            frame_rate: source_frame_rate,
+        },
     }
 }
 
@@ -154,8 +212,7 @@ pub fn convert_job(
     tools: &ToolPaths,
     settings: &EncoderSettings,
     duration: Option<Duration>,
-    deinterlace: bool,
-    frame_rate: Option<&FrameRate>,
+    video_transform: &VideoTransform,
     progress: &ProgressBar,
 ) -> Result<()> {
     ensure_output_parent(job)?;
@@ -187,12 +244,12 @@ pub fn convert_job(
         ])
         .arg(settings.crf.to_string());
 
-    if deinterlace {
-        command.args(["-vf", DEINTERLACE_FILTER]);
+    if let Some(filter) = video_transform.filter {
+        command.args(["-vf", filter]);
     }
 
-    if let Some(frame_rate) = frame_rate {
-        command.arg("-r").arg(frame_rate.as_str());
+    if let Some(frame_rate) = video_transform.frame_rate {
+        command.arg("-r").arg(frame_rate.to_string());
     }
 
     let mut child = command
@@ -390,14 +447,14 @@ fn parse_frame_rate(value: &str) -> Option<FrameRate> {
         if numerator == 0 || denominator == 0 {
             return None;
         }
-        return Some(FrameRate(format!("{numerator}/{denominator}")));
+        return Some(FrameRate::new(numerator, denominator));
     }
 
     let fps = value.parse::<u64>().ok()?;
     if fps == 0 {
         None
     } else {
-        Some(FrameRate(fps.to_string()))
+        Some(FrameRate::new(fps, 1))
     }
 }
 
@@ -466,19 +523,76 @@ mod tests {
 
     #[test]
     fn deinterlace_filter_uses_bob_mode_for_smoother_motion() {
-        assert!(DEINTERLACE_FILTER.contains("mode=send_field"));
+        assert!(DEINTERLACE_FILTER_SEND_FIELD.contains("mode=send_field"));
     }
 
     #[test]
     fn parses_frame_rate_entries() {
         assert_eq!(
             parse_frame_rate_entries("r_frame_rate=25/1\navg_frame_rate=30000/1001\n"),
-            Some(FrameRate("30000/1001".to_owned()))
+            Some(FrameRate::new(30000, 1001))
         );
         assert_eq!(
             parse_frame_rate_entries("r_frame_rate=25/1\navg_frame_rate=0/0\n"),
-            Some(FrameRate("25/1".to_owned()))
+            Some(FrameRate::new(25, 1))
         );
         assert_eq!(parse_frame_rate_entries("avg_frame_rate=N/A\n"), None);
+    }
+
+    #[test]
+    fn doubles_frame_rates_for_smooth_interlaced_output() {
+        assert_eq!(FrameRate::new(25, 1).doubled(), Some(FrameRate::new(50, 1)));
+        assert_eq!(
+            FrameRate::new(30000, 1001).doubled(),
+            Some(FrameRate::new(60000, 1001))
+        );
+    }
+
+    #[test]
+    fn selects_smooth_interlaced_transform() {
+        assert_eq!(
+            select_video_transform(
+                SourceScan::Interlaced,
+                DeinterlaceMode::Auto,
+                FpsMode::Smooth,
+                Some(FrameRate::new(25, 1))
+            ),
+            VideoTransform {
+                filter: Some(DEINTERLACE_FILTER_SEND_FIELD),
+                frame_rate: Some(FrameRate::new(50, 1)),
+            }
+        );
+    }
+
+    #[test]
+    fn selects_source_fps_interlaced_transform() {
+        assert_eq!(
+            select_video_transform(
+                SourceScan::Interlaced,
+                DeinterlaceMode::Auto,
+                FpsMode::Source,
+                Some(FrameRate::new(30000, 1001))
+            ),
+            VideoTransform {
+                filter: Some(DEINTERLACE_FILTER_SEND_FRAME),
+                frame_rate: Some(FrameRate::new(30000, 1001)),
+            }
+        );
+    }
+
+    #[test]
+    fn progressive_transform_preserves_source_fps_without_deinterlacing() {
+        assert_eq!(
+            select_video_transform(
+                SourceScan::Progressive,
+                DeinterlaceMode::Always,
+                FpsMode::Smooth,
+                Some(FrameRate::new(25, 1))
+            ),
+            VideoTransform {
+                filter: None,
+                frame_rate: Some(FrameRate::new(25, 1)),
+            }
+        );
     }
 }

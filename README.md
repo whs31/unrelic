@@ -40,15 +40,18 @@ Options:
       --preset <PRESET>            x264 preset [default: veryslow]
       --audio-bitrate <BITRATE>    AAC audio bitrate [default: 320k]
       --deinterlace <MODE>         Deinterlace video: auto, always, never [default: auto]
+      --fps-mode <MODE>            Frame-rate policy: smooth, source [default: smooth]
   -h, --help                       Print help
   -V, --version                    Print version
 ```
 
 By default, `unrelic` heavily prioritizes output quality over conversion speed:
-CRF 14, the x264 `veryslow` preset, 320k AAC audio, source frame-rate
-preservation, and automatic deinterlacing. For interlaced MPG/MPEG input, it
-applies FFmpeg's `bwdif` bob deinterlacer while keeping the MP4's nominal frame
-rate matched to the source. If a file still shows stripes, reconvert it with
+CRF 14, the x264 `veryslow` preset, 320k AAC audio, and automatic
+deinterlacing. For interlaced MPG/MPEG input, it applies FFmpeg's `bwdif` bob
+deinterlacer and preserves field cadence as progressive frames, so 25i sources
+become 50p MP4 and 29.97i sources become 59.94p MP4. Progressive sources keep
+their original frame rate. Use `--fps-mode source` if you need strict nominal
+source-FPS output instead. If a file still shows stripes, reconvert it with
 `--overwrite --deinterlace always`.
 
 ## Windows releases
