@@ -14,7 +14,14 @@
       <Directory Id="ProgramsDirectory" Name="Programs">
         <Directory Id="INSTALLFOLDER" Name="unrelic">
           <Component Id="UnrelicExeComponent" Guid="{E7FCB9E0-1054-4424-8451-2DDFE962E0F5}">
-            <File Id="UnrelicExe" Source="$(var.PayloadDir)\unrelic.exe" KeyPath="yes" />
+            <File Id="UnrelicExe" Source="$(var.PayloadDir)\unrelic.exe" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\unrelic\Installer"
+              Name="UnrelicExeComponent"
+              Value="1"
+              Type="integer"
+              KeyPath="yes" />
             <Environment
               Id="AddInstallFolderToUserPath"
               Name="PATH"
@@ -26,19 +33,195 @@
           </Component>
 
           <Component Id="FfmpegExeComponent" Guid="{386A6491-5862-4B7F-B4DE-29B92D6FC1D1}">
-            <File Id="FfmpegExe" Source="$(var.PayloadDir)\ffmpeg.exe" KeyPath="yes" />
+            <File Id="FfmpegExe" Source="$(var.PayloadDir)\ffmpeg.exe" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\unrelic\Installer"
+              Name="FfmpegExeComponent"
+              Value="1"
+              Type="integer"
+              KeyPath="yes" />
           </Component>
 
           <Component Id="FfprobeExeComponent" Guid="{6F0EAF3C-9D16-4F29-A7B7-04E8F6E32D8D}">
-            <File Id="FfprobeExe" Source="$(var.PayloadDir)\ffprobe.exe" KeyPath="yes" />
+            <File Id="FfprobeExe" Source="$(var.PayloadDir)\ffprobe.exe" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\unrelic\Installer"
+              Name="FfprobeExeComponent"
+              Value="1"
+              Type="integer"
+              KeyPath="yes" />
           </Component>
 
           <Component Id="ReadmeComponent" Guid="{C5138DBA-8873-4A04-9A74-A77312E17173}">
-            <File Id="Readme" Source="$(var.PayloadDir)\README.md" KeyPath="yes" />
+            <File Id="Readme" Source="$(var.PayloadDir)\README.md" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\unrelic\Installer"
+              Name="ReadmeComponent"
+              Value="1"
+              Type="integer"
+              KeyPath="yes" />
           </Component>
 
           <Component Id="LicenseComponent" Guid="{47C54E6A-4F47-41B7-A05D-6E6C0D6D5C8C}">
-            <File Id="License" Source="$(var.PayloadDir)\LICENSE" KeyPath="yes" />
+            <File Id="License" Source="$(var.PayloadDir)\LICENSE" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\unrelic\Installer"
+              Name="LicenseComponent"
+              Value="1"
+              Type="integer"
+              KeyPath="yes" />
+          </Component>
+
+          <Component Id="ContextScriptComponent" Guid="{F967CCC5-D5B4-4660-8441-E5BB4E63820D}">
+            <File Id="ContextScript" Source="$(var.PayloadDir)\unrelic-context.ps1" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\unrelic\Installer"
+              Name="ContextScriptComponent"
+              Value="1"
+              Type="integer"
+              KeyPath="yes" />
+          </Component>
+
+          <Component Id="ProfileDirectoryCleanupComponent" Guid="{23B4775D-4817-4D56-BC35-9799E79E8557}">
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\unrelic\Installer"
+              Name="ProfileDirectoryCleanupComponent"
+              Value="1"
+              Type="integer"
+              KeyPath="yes" />
+            <RemoveFolder
+              Id="RemoveFfmpegLicensesFolder"
+              Directory="FfmpegLicensesFolder"
+              On="uninstall" />
+            <RemoveFolder
+              Id="RemoveInstallFolder"
+              Directory="INSTALLFOLDER"
+              On="uninstall" />
+            <RemoveFolder
+              Id="RemoveProgramsDirectory"
+              Directory="ProgramsDirectory"
+              On="uninstall" />
+          </Component>
+
+          <Component Id="ExplorerContextMenuComponent" Guid="{9FD95017-AEBE-48E1-80D9-B5F10E51901D}">
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpg\shell\unrelic"
+              Value="Convert with unrelic"
+              Type="string"
+              KeyPath="yes" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpg\shell\unrelic"
+              Name="Icon"
+              Value="[INSTALLFOLDER]unrelic.exe"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpg\shell\unrelic"
+              Name="MultiSelectModel"
+              Value="Single"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpg\shell\unrelic\command"
+              Value='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLFOLDER]unrelic-context.ps1" "%1"'
+              Type="string" />
+            <RemoveRegistryKey
+              Id="RemoveMpgContextMenuKey"
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpg\shell\unrelic"
+              Action="removeOnUninstall" />
+
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpeg\shell\unrelic"
+              Value="Convert with unrelic"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpeg\shell\unrelic"
+              Name="Icon"
+              Value="[INSTALLFOLDER]unrelic.exe"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpeg\shell\unrelic"
+              Name="MultiSelectModel"
+              Value="Single"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpeg\shell\unrelic\command"
+              Value='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLFOLDER]unrelic-context.ps1" "%1"'
+              Type="string" />
+            <RemoveRegistryKey
+              Id="RemoveMpegContextMenuKey"
+              Root="HKCU"
+              Key="Software\Classes\SystemFileAssociations\.mpeg\shell\unrelic"
+              Action="removeOnUninstall" />
+
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\Directory\shell\unrelic"
+              Value="Convert with unrelic"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\Directory\shell\unrelic"
+              Name="Icon"
+              Value="[INSTALLFOLDER]unrelic.exe"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\Directory\shell\unrelic"
+              Name="MultiSelectModel"
+              Value="Single"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\Directory\shell\unrelic\command"
+              Value='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLFOLDER]unrelic-context.ps1" "%1"'
+              Type="string" />
+            <RemoveRegistryKey
+              Id="RemoveDirectoryContextMenuKey"
+              Root="HKCU"
+              Key="Software\Classes\Directory\shell\unrelic"
+              Action="removeOnUninstall" />
+
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\Directory\Background\shell\unrelic"
+              Value="Convert with unrelic"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\Directory\Background\shell\unrelic"
+              Name="Icon"
+              Value="[INSTALLFOLDER]unrelic.exe"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\Directory\Background\shell\unrelic"
+              Name="MultiSelectModel"
+              Value="Single"
+              Type="string" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\Classes\Directory\Background\shell\unrelic\command"
+              Value='powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLFOLDER]unrelic-context.ps1" "%V"'
+              Type="string" />
+            <RemoveRegistryKey
+              Id="RemoveDirectoryBackgroundContextMenuKey"
+              Root="HKCU"
+              Key="Software\Classes\Directory\Background\shell\unrelic"
+              Action="removeOnUninstall" />
           </Component>
 
           <Directory Id="FfmpegLicensesFolder" Name="ffmpeg-licenses" />
@@ -52,6 +235,9 @@
       <ComponentRef Id="FfprobeExeComponent" />
       <ComponentRef Id="ReadmeComponent" />
       <ComponentRef Id="LicenseComponent" />
+      <ComponentRef Id="ContextScriptComponent" />
+      <ComponentRef Id="ProfileDirectoryCleanupComponent" />
+      <ComponentRef Id="ExplorerContextMenuComponent" />
       <ComponentGroupRef Id="FfmpegLicenseComponents" />
     </Feature>
   </Package>

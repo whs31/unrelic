@@ -48,9 +48,10 @@ Windows releases include:
 
 - `unrelic-windows-x86_64.msi`: a per-user installer that installs `unrelic`,
   bundled FFmpeg tools, and license files into
-  `%LocalAppData%\Programs\unrelic`, then adds that directory to the user PATH.
-- `unrelic-windows-x86_64.zip`: a portable archive with the same binaries and
-  license files.
+  `%LocalAppData%\Programs\unrelic`, then adds that directory to the user PATH
+  and adds Explorer context-menu actions for `.mpg`, `.mpeg`, and folders.
+- `unrelic-windows-x86_64.zip`: a portable archive with the same binaries,
+  context-menu helper script, and license files.
 
 Both Windows artifacts include FFmpeg binaries from BtbN's GPL FFmpeg builds, so
 the artifacts also include FFmpeg license/readme files.

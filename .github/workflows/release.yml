@@ -74,6 +74,7 @@ jobs:
           New-Item -ItemType Directory -Force $dist | Out-Null
 
           Copy-Item target/release/unrelic.exe $dist/
+          Copy-Item installer/unrelic-context.ps1 $dist/
           Copy-Item README.md $dist/
           Copy-Item LICENSE $dist/
 
@@ -130,7 +131,7 @@ jobs:
             throw "MSI install failed with exit code $($install.ExitCode)."
           }
 
-          $expectedFiles = @("unrelic.exe", "ffmpeg.exe", "ffprobe.exe", "README.md", "LICENSE")
+          $expectedFiles = @("unrelic.exe", "ffmpeg.exe", "ffprobe.exe", "unrelic-context.ps1", "README.md", "LICENSE")
           foreach ($file in $expectedFiles) {
             $path = Join-Path $installDir $file
             if (-not (Test-Path $path)) {
@@ -150,6 +151,41 @@ jobs:
             throw "Installer did not add $installDir to the user PATH."
           }
 
+          $registryChecks = @(
+            @{ Key = "Registry::HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mpg\shell\unrelic"; Argument = "%1" },
+            @{ Key = "Registry::HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.mpeg\shell\unrelic"; Argument = "%1" },
+            @{ Key = "Registry::HKEY_CURRENT_USER\Software\Classes\Directory\shell\unrelic"; Argument = "%1" },
+            @{ Key = "Registry::HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\unrelic"; Argument = "%V" }
+          )
+          $contextScript = Join-Path $installDir "unrelic-context.ps1"
+          foreach ($check in $registryChecks) {
+            if (-not (Test-Path $check.Key)) {
+              throw "Context menu registry key is missing: $($check.Key)"
+            }
+
+            $label = (Get-Item -Path $check.Key).GetValue("")
+            $verb = Get-ItemProperty -Path $check.Key
+            if ($label -ne "Convert with unrelic") {
+              throw "Context menu label is wrong for $($check.Key)."
+            }
+            if ($verb.Icon -ne (Join-Path $installDir "unrelic.exe")) {
+              throw "Context menu icon is wrong for $($check.Key)."
+            }
+            if ($verb.MultiSelectModel -ne "Single") {
+              throw "Context menu MultiSelectModel is wrong for $($check.Key)."
+            }
+
+            $commandKey = Join-Path $check.Key "command"
+            if (-not (Test-Path $commandKey)) {
+              throw "Context menu command key is missing: $commandKey"
+            }
+
+            $command = (Get-Item -Path $commandKey).GetValue("")
+            if (-not $command.Contains($contextScript) -or -not $command.Contains($check.Argument)) {
+              throw "Context menu command is wrong for $commandKey`: $command"
+            }
+          }
+
           $uninstall = Start-Process msiexec.exe -Wait -PassThru -ArgumentList "/x `"$msi`" /qn /norestart"
           if ($uninstall.ExitCode -ne 0) {
             throw "MSI uninstall failed with exit code $($uninstall.ExitCode)."
@@ -163,6 +199,12 @@ jobs:
             ForEach-Object { $_.TrimEnd('\') }
           if ($userPathEntries -contains $normalizedInstallDir) {
             throw "Installer did not remove $installDir from the user PATH."
+          }
+
+          foreach ($check in $registryChecks) {
+            if (Test-Path $check.Key) {
+              throw "Context menu registry key still exists after uninstall: $($check.Key)"
+            }
           }
 
       - name: Upload release asset

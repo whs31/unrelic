@@ -53,11 +53,14 @@ foreach ($file in $files) {
   $idSuffix = ConvertTo-WixId ("{0:D3}_{1}" -f $index, $relativeName)
   $componentId = "FfmpegLicenseComponent_$idSuffix"
   $fileId = "FfmpegLicenseFile_$idSuffix"
+  $keyPathName = "FfmpegLicenseComponent_$idSuffix"
   $guid = New-StableGuid $relativeName
   $source = Escape-Xml $file.FullName
+  $relativeValue = Escape-Xml $relativeName
 
   $componentLines.Add("      <Component Id=`"$componentId`" Guid=`"{$guid}`">")
-  $componentLines.Add("        <File Id=`"$fileId`" Source=`"$source`" KeyPath=`"yes`" />")
+  $componentLines.Add("        <File Id=`"$fileId`" Source=`"$source`" />")
+  $componentLines.Add("        <RegistryValue Root=`"HKCU`" Key=`"Software\unrelic\Installer\FfmpegLicenses`" Name=`"$keyPathName`" Value=`"$relativeValue`" Type=`"string`" KeyPath=`"yes`" />")
   $componentLines.Add("      </Component>")
   $componentRefLines.Add("      <ComponentRef Id=`"$componentId`" />")
   $index += 1
