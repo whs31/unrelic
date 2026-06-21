@@ -2,6 +2,10 @@ use std::{fmt, path::PathBuf};
 
 use clap::{Parser, ValueEnum};
 
+pub const DEFAULT_CRF: u8 = 14;
+pub const DEFAULT_PRESET: Preset = Preset::Veryslow;
+pub const DEFAULT_AUDIO_BITRATE: &str = "320k";
+
 #[derive(Debug, Clone, Parser)]
 #[command(
     name = "unrelic",
@@ -33,18 +37,23 @@ pub struct Cli {
 
     #[arg(
         long,
-        default_value_t = 23,
+        default_value_t = DEFAULT_CRF,
         value_parser = clap::value_parser!(u8).range(1..=51),
         help = "H.264 CRF quality, from 1 (largest/best) to 51 (smallest/worst)"
     )]
     pub crf: u8,
 
-    #[arg(long, default_value_t = Preset::Medium, value_enum, help = "x264 encoding preset")]
+    #[arg(
+        long,
+        default_value_t = DEFAULT_PRESET,
+        value_enum,
+        help = "x264 encoding preset"
+    )]
     pub preset: Preset,
 
     #[arg(
         long,
-        default_value = "192k",
+        default_value = DEFAULT_AUDIO_BITRATE,
         value_name = "BITRATE",
         help = "AAC audio bitrate"
     )]
@@ -124,9 +133,9 @@ mod tests {
         assert!(cli.output.is_none());
         assert!(!cli.overwrite);
         assert!(cli.recursive);
-        assert_eq!(cli.crf, 23);
-        assert_eq!(cli.preset, Preset::Medium);
-        assert_eq!(cli.audio_bitrate, "192k");
+        assert_eq!(cli.crf, DEFAULT_CRF);
+        assert_eq!(cli.preset, DEFAULT_PRESET);
+        assert_eq!(cli.audio_bitrate, DEFAULT_AUDIO_BITRATE);
         assert_eq!(cli.deinterlace, DeinterlaceMode::Auto);
     }
 

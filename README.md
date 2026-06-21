@@ -36,18 +36,19 @@ Options:
       --no-recursive               Only scan the top level of a directory
       --ffmpeg <PATH>              Path to ffmpeg
       --ffprobe <PATH>             Path to ffprobe
-      --crf <CRF>                  H.264 CRF quality, 1-51 [default: 23]
-      --preset <PRESET>            x264 preset [default: medium]
-      --audio-bitrate <BITRATE>    AAC audio bitrate [default: 192k]
+      --crf <CRF>                  H.264 CRF quality, 1-51 [default: 14]
+      --preset <PRESET>            x264 preset [default: veryslow]
+      --audio-bitrate <BITRATE>    AAC audio bitrate [default: 320k]
       --deinterlace <MODE>         Deinterlace video: auto, always, never [default: auto]
   -h, --help                       Print help
   -V, --version                    Print version
 ```
 
-By default, `unrelic` probes the source video field order and applies FFmpeg's
-`bwdif` deinterlacer for interlaced MPG/MPEG input. This avoids the horizontal
-combing artifacts that can show up when old camcorder footage is encoded as
-progressive H.264. If a file still shows stripes, reconvert it with
+By default, `unrelic` heavily prioritizes output quality over conversion speed:
+CRF 14, the x264 `veryslow` preset, 320k AAC audio, source frame-rate
+preservation, and automatic deinterlacing. For interlaced MPG/MPEG input, it
+applies FFmpeg's `bwdif` bob deinterlacer while keeping the MP4's nominal frame
+rate matched to the source. If a file still shows stripes, reconvert it with
 `--overwrite --deinterlace always`.
 
 ## Windows releases

@@ -16,13 +16,22 @@ use crate::{
     tools::ToolPaths,
 };
 
-const DEINTERLACE_FILTER: &str = "bwdif=mode=send_frame:parity=auto:deint=all";
+const DEINTERLACE_FILTER: &str = "bwdif=mode=send_field:parity=auto:deint=all";
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct EncoderSettings {
     pub crf: u8,
     pub preset: Preset,
     pub audio_bitrate: String,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct FrameRate(String);
+
+impl FrameRate {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -110,12 +119,43 @@ pub fn probe_source_scan(ffprobe: &Path, input: &Path) -> Result<SourceScan> {
     Ok(parse_field_order(stdout.trim()))
 }
 
+pub fn probe_frame_rate(ffprobe: &Path, input: &Path) -> Result<Option<FrameRate>> {
+    let output = Command::new(ffprobe)
+        .args([
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=avg_frame_rate,r_frame_rate",
+            "-of",
+            "default=noprint_wrappers=1",
+        ])
+        .arg(input)
+        .output()
+        .map_err(|source| UnrelicError::Spawn {
+            program: ffprobe.to_path_buf(),
+            source,
+        })?;
+
+    if !output.status.success() {
+        return Err(UnrelicError::Probe {
+            input: input.to_path_buf(),
+            stderr: stderr_to_string(&output.stderr, output.status),
+        });
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(parse_frame_rate_entries(&stdout))
+}
+
 pub fn convert_job(
     job: &ConvertJob,
     tools: &ToolPaths,
     settings: &EncoderSettings,
     duration: Option<Duration>,
     deinterlace: bool,
+    frame_rate: Option<&FrameRate>,
     progress: &ProgressBar,
 ) -> Result<()> {
     ensure_output_parent(job)?;
@@ -149,6 +189,10 @@ pub fn convert_job(
 
     if deinterlace {
         command.args(["-vf", DEINTERLACE_FILTER]);
+    }
+
+    if let Some(frame_rate) = frame_rate {
+        command.arg("-r").arg(frame_rate.as_str());
     }
 
     let mut child = command
@@ -315,6 +359,48 @@ fn parse_field_order(value: &str) -> SourceScan {
     }
 }
 
+fn parse_frame_rate_entries(output: &str) -> Option<FrameRate> {
+    let mut average = None;
+    let mut reported = None;
+
+    for line in output.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+
+        match key.trim() {
+            "avg_frame_rate" => average = parse_frame_rate(value),
+            "r_frame_rate" => reported = parse_frame_rate(value),
+            _ => {}
+        }
+    }
+
+    average.or(reported)
+}
+
+fn parse_frame_rate(value: &str) -> Option<FrameRate> {
+    let value = value.trim();
+    if value.is_empty() || value.eq_ignore_ascii_case("N/A") {
+        return None;
+    }
+
+    if let Some((numerator, denominator)) = value.split_once('/') {
+        let numerator = numerator.parse::<u64>().ok()?;
+        let denominator = denominator.parse::<u64>().ok()?;
+        if numerator == 0 || denominator == 0 {
+            return None;
+        }
+        return Some(FrameRate(format!("{numerator}/{denominator}")));
+    }
+
+    let fps = value.parse::<u64>().ok()?;
+    if fps == 0 {
+        None
+    } else {
+        Some(FrameRate(fps.to_string()))
+    }
+}
+
 fn parse_ffmpeg_timestamp(value: &str) -> Option<Duration> {
     let mut parts = value.split(':');
     let hours = parts.next()?.parse::<u64>().ok()?;
@@ -376,5 +462,23 @@ mod tests {
         assert_eq!(parse_field_order("BB"), SourceScan::Interlaced);
         assert_eq!(parse_field_order("unknown"), SourceScan::Unknown);
         assert_eq!(parse_field_order(""), SourceScan::Unknown);
+    }
+
+    #[test]
+    fn deinterlace_filter_uses_bob_mode_for_smoother_motion() {
+        assert!(DEINTERLACE_FILTER.contains("mode=send_field"));
+    }
+
+    #[test]
+    fn parses_frame_rate_entries() {
+        assert_eq!(
+            parse_frame_rate_entries("r_frame_rate=25/1\navg_frame_rate=30000/1001\n"),
+            Some(FrameRate("30000/1001".to_owned()))
+        );
+        assert_eq!(
+            parse_frame_rate_entries("r_frame_rate=25/1\navg_frame_rate=0/0\n"),
+            Some(FrameRate("25/1".to_owned()))
+        );
+        assert_eq!(parse_frame_rate_entries("avg_frame_rate=N/A\n"), None);
     }
 }

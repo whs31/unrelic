@@ -3,7 +3,7 @@ use std::process::Command;
 use indicatif::ProgressBar;
 use unrelic::{
     cli::Preset,
-    ffmpeg::{EncoderSettings, convert_job, probe_duration},
+    ffmpeg::{EncoderSettings, convert_job, probe_duration, probe_frame_rate},
     plan::{PlanOptions, build_plan},
     tools::resolve_tools,
 };
@@ -59,12 +59,23 @@ fn converts_generated_mpg_to_h264_aac_mp4() {
     };
     let progress = ProgressBar::hidden();
     let duration = probe_duration(&tools.ffprobe, &input).unwrap();
+    let frame_rate = probe_frame_rate(&tools.ffprobe, &input).unwrap();
 
-    convert_job(&plan.jobs[0], &tools, &settings, duration, false, &progress).unwrap();
+    convert_job(
+        &plan.jobs[0],
+        &tools,
+        &settings,
+        duration,
+        false,
+        frame_rate.as_ref(),
+        &progress,
+    )
+    .unwrap();
 
     assert!(output.is_file());
     assert_eq!(probe_codec(&ffprobe, &output, "v:0"), "h264");
     assert_eq!(probe_codec(&ffprobe, &output, "a:0"), "aac");
+    assert_eq!(probe_frame_rate(&ffprobe, &output).unwrap(), frame_rate);
 }
 
 fn probe_codec(ffprobe: &std::path::Path, input: &std::path::Path, stream: &str) -> String {
