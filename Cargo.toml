@@ -1,0 +1,22 @@
+[package]
+name = "unrelic"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+description = "Tiny MPG to MP4 with H.264 video + AAC audio converter"
+repository = "https://github.com/whs31/unrelic"
+
+[[bin]]
+name = "unrelic"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+indicatif = "0.17"
+thiserror = "2"
+walkdir = "2"
+which = "7"
+
+[dev-dependencies]
+tempfile = "3"

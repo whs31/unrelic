@@ -1,0 +1,76 @@
+name: Release Windows
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Build Windows release artifact
+    runs-on: windows-latest
+    env:
+      FFMPEG_RELEASE_REPO: BtbN/FFmpeg-Builds
+      FFMPEG_ASSET_PATTERN: ffmpeg-master-latest-win64-gpl.zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Download FFmpeg
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force ffmpeg-download | Out-Null
+          gh release download `
+            --repo $env:FFMPEG_RELEASE_REPO `
+            --pattern $env:FFMPEG_ASSET_PATTERN `
+            --dir ffmpeg-download `
+            --clobber
+          Expand-Archive `
+            -Path (Join-Path ffmpeg-download $env:FFMPEG_ASSET_PATTERN) `
+            -DestinationPath ffmpeg-download/extracted `
+            -Force
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $dist = "dist/unrelic-windows-x86_64"
+          New-Item -ItemType Directory -Force $dist | Out-Null
+
+          Copy-Item target/release/unrelic.exe $dist/
+          Copy-Item README.md $dist/
+          Copy-Item LICENSE $dist/
+
+          $ffmpeg = Get-ChildItem ffmpeg-download/extracted -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          $ffprobe = Get-ChildItem ffmpeg-download/extracted -Recurse -Filter ffprobe.exe | Select-Object -First 1
+          if ($null -eq $ffmpeg -or $null -eq $ffprobe) {
+            throw "Could not find ffmpeg.exe and ffprobe.exe in the downloaded FFmpeg archive."
+          }
+          Copy-Item $ffmpeg.FullName $dist/
+          Copy-Item $ffprobe.FullName $dist/
+
+          $licenseDir = Join-Path $dist "ffmpeg-licenses"
+          New-Item -ItemType Directory -Force $licenseDir | Out-Null
+          Get-ChildItem ffmpeg-download/extracted -Recurse -File -Include LICENSE*,COPYING*,README* |
+            Copy-Item -Destination $licenseDir -Force
+
+          Compress-Archive `
+            -Path "$dist/*" `
+            -DestinationPath "dist/unrelic-windows-x86_64.zip" `
+            -Force
+
+      - name: Upload release asset
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload $env:GITHUB_REF_NAME dist/unrelic-windows-x86_64.zip --clobber
