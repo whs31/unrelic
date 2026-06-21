@@ -5,7 +5,7 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use unrelic::{
     Result,
     cli::Cli,
-    ffmpeg::{EncoderSettings, convert_job, probe_duration},
+    ffmpeg::{EncoderSettings, convert_job, probe_duration, probe_source_scan},
     plan::{PlanOptions, SkipReason, build_plan},
     tools::resolve_tools,
 };
@@ -86,10 +86,21 @@ fn run(cli: Cli) -> Result<u8> {
                 continue;
             }
         };
+        let source_scan = match probe_source_scan(&tools.ffprobe, &job.input) {
+            Ok(source_scan) => source_scan,
+            Err(error) => {
+                file_bar.finish_and_clear();
+                failed.push(format!("{}: {error}", job.input.display()));
+                overall.println(format!("fail: {} ({error})", job.input.display()));
+                overall.inc(1);
+                continue;
+            }
+        };
+        let deinterlace = cli.deinterlace.should_deinterlace(source_scan);
 
         configure_file_progress(&file_bar, duration);
 
-        match convert_job(job, &tools, &settings, duration, &file_bar) {
+        match convert_job(job, &tools, &settings, duration, deinterlace, &file_bar) {
             Ok(()) => {
                 converted += 1;
                 file_bar.finish_and_clear();

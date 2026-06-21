@@ -21,6 +21,7 @@ Examples:
 unrelic movie.mpg
 unrelic ./old-videos --output ./converted
 unrelic movie.mpeg --output movie-fixed.mp4 --overwrite
+unrelic ./old-videos --overwrite --deinterlace always
 ```
 
 Options:
@@ -38,9 +39,16 @@ Options:
       --crf <CRF>                  H.264 CRF quality, 1-51 [default: 23]
       --preset <PRESET>            x264 preset [default: medium]
       --audio-bitrate <BITRATE>    AAC audio bitrate [default: 192k]
+      --deinterlace <MODE>         Deinterlace video: auto, always, never [default: auto]
   -h, --help                       Print help
   -V, --version                    Print version
 ```
+
+By default, `unrelic` probes the source video field order and applies FFmpeg's
+`bwdif` deinterlacer for interlaced MPG/MPEG input. This avoids the horizontal
+combing artifacts that can show up when old camcorder footage is encoded as
+progressive H.264. If a file still shows stripes, reconvert it with
+`--overwrite --deinterlace always`.
 
 ## Windows releases
 

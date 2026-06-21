@@ -49,6 +49,14 @@ pub struct Cli {
         help = "AAC audio bitrate"
     )]
     pub audio_bitrate: String,
+
+    #[arg(
+        long,
+        default_value_t = DeinterlaceMode::Auto,
+        value_enum,
+        help = "Deinterlace video: auto probes MPG field order, always forces bwdif, never disables it"
+    )]
+    pub deinterlace: DeinterlaceMode,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
@@ -86,9 +94,27 @@ impl fmt::Display for Preset {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum DeinterlaceMode {
+    Auto,
+    Always,
+    Never,
+}
+
+impl fmt::Display for DeinterlaceMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Auto => "auto",
+            Self::Always => "always",
+            Self::Never => "never",
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffmpeg::SourceScan;
 
     #[test]
     fn parses_defaults() {
@@ -101,6 +127,7 @@ mod tests {
         assert_eq!(cli.crf, 23);
         assert_eq!(cli.preset, Preset::Medium);
         assert_eq!(cli.audio_bitrate, "192k");
+        assert_eq!(cli.deinterlace, DeinterlaceMode::Auto);
     }
 
     #[test]
@@ -119,5 +146,28 @@ mod tests {
         let cli = Cli::parse_from(["unrelic", "movies", "--no-recursive"]);
 
         assert!(!cli.recursive);
+    }
+
+    #[test]
+    fn parses_deinterlace_mode() {
+        let cli = Cli::parse_from(["unrelic", "movie.mpg", "--deinterlace", "always"]);
+
+        assert_eq!(cli.deinterlace, DeinterlaceMode::Always);
+    }
+
+    #[test]
+    fn rejects_invalid_deinterlace_mode() {
+        assert!(
+            Cli::try_parse_from(["unrelic", "movie.mpg", "--deinterlace", "sometimes"]).is_err()
+        );
+    }
+
+    #[test]
+    fn deinterlace_mode_resolves_from_source_scan() {
+        assert!(DeinterlaceMode::Auto.should_deinterlace(SourceScan::Interlaced));
+        assert!(!DeinterlaceMode::Auto.should_deinterlace(SourceScan::Progressive));
+        assert!(!DeinterlaceMode::Auto.should_deinterlace(SourceScan::Unknown));
+        assert!(DeinterlaceMode::Always.should_deinterlace(SourceScan::Progressive));
+        assert!(!DeinterlaceMode::Never.should_deinterlace(SourceScan::Interlaced));
     }
 }
