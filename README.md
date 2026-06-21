@@ -41,3 +41,16 @@ Options:
   -h, --help                       Print help
   -V, --version                    Print version
 ```
+
+## Windows releases
+
+Windows releases include:
+
+- `unrelic-windows-x86_64.msi`: a per-user installer that installs `unrelic`,
+  bundled FFmpeg tools, and license files into
+  `%LocalAppData%\Programs\unrelic`, then adds that directory to the user PATH.
+- `unrelic-windows-x86_64.zip`: a portable archive with the same binaries and
+  license files.
+
+Both Windows artifacts include FFmpeg binaries from BtbN's GPL FFmpeg builds, so
+the artifacts also include FFmpeg license/readme files.

@@ -1,0 +1,58 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="unrelic"
+    Manufacturer="whs31"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="{EEBC7E8B-5CC0-4F26-BBD0-F1C6B0426AAB}"
+    Scope="perUser"
+    InstallerVersion="500">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsDirectory" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="unrelic">
+          <Component Id="UnrelicExeComponent" Guid="{E7FCB9E0-1054-4424-8451-2DDFE962E0F5}">
+            <File Id="UnrelicExe" Source="$(var.PayloadDir)\unrelic.exe" KeyPath="yes" />
+            <Environment
+              Id="AddInstallFolderToUserPath"
+              Name="PATH"
+              Value="[INSTALLFOLDER]"
+              Action="set"
+              Part="last"
+              System="no"
+              Permanent="no" />
+          </Component>
+
+          <Component Id="FfmpegExeComponent" Guid="{386A6491-5862-4B7F-B4DE-29B92D6FC1D1}">
+            <File Id="FfmpegExe" Source="$(var.PayloadDir)\ffmpeg.exe" KeyPath="yes" />
+          </Component>
+
+          <Component Id="FfprobeExeComponent" Guid="{6F0EAF3C-9D16-4F29-A7B7-04E8F6E32D8D}">
+            <File Id="FfprobeExe" Source="$(var.PayloadDir)\ffprobe.exe" KeyPath="yes" />
+          </Component>
+
+          <Component Id="ReadmeComponent" Guid="{C5138DBA-8873-4A04-9A74-A77312E17173}">
+            <File Id="Readme" Source="$(var.PayloadDir)\README.md" KeyPath="yes" />
+          </Component>
+
+          <Component Id="LicenseComponent" Guid="{47C54E6A-4F47-41B7-A05D-6E6C0D6D5C8C}">
+            <File Id="License" Source="$(var.PayloadDir)\LICENSE" KeyPath="yes" />
+          </Component>
+
+          <Directory Id="FfmpegLicensesFolder" Name="ffmpeg-licenses" />
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="unrelic" Level="1">
+      <ComponentRef Id="UnrelicExeComponent" />
+      <ComponentRef Id="FfmpegExeComponent" />
+      <ComponentRef Id="FfprobeExeComponent" />
+      <ComponentRef Id="ReadmeComponent" />
+      <ComponentRef Id="LicenseComponent" />
+      <ComponentGroupRef Id="FfmpegLicenseComponents" />
+    </Feature>
+  </Package>
+</Wix>
